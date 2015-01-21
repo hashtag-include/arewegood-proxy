@@ -3,7 +3,7 @@ var http = require('http'),
     config = require('uniformer')({
       file: "config.json",
       defaults: {
-        host: "arewegood.bengreenier.com",
+        host: "arewegood.azurewebsites.net",
         port: 8015
       }
     });
