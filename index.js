@@ -1,10 +1,12 @@
 var http = require('http'),
     httpProxy = require('http-proxy'),
+    apps = require('polo')(),
     config = require('uniformer')({
       file: "config.json",
       defaults: {
         host: "arewegood.azurewebsites.net",
-        port: 8015
+        port: 8015,
+        serviceName: "arewegood-proxy"
       }
     });
 
@@ -29,5 +31,10 @@ proxyServer.on('upgrade', function (req, socket, head) {
 });
 
 proxyServer.listen(config.port, function() {
+  apps.put({
+    config.serviceName,
+    config.port
+  });
+
   console.log("listening on "+config.port);
 });
