@@ -32,8 +32,8 @@ proxyServer.on('upgrade', function (req, socket, head) {
 
 proxyServer.listen(config.port, function() {
   apps.put({
-    config.serviceName,
-    config.port
+    name: config.serviceName,
+    port: config.port
   });
 
   console.log("listening on "+config.port);
