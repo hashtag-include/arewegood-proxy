@@ -53,7 +53,7 @@ server.on('upgrade', function(request, socket, body) {
         console.log("[proxy] batched ", p);
 
         if (ws._batchedInterval == null) {
-          ws._batchedInterval = setInterval(function(){
+          ws._batchedInterval = setInterval(function() {
             if (ws._batched.length > 0 && ws._bearerToken) {
               REQ.post(config.host+":"+config.remotePort+config.logsEndpoint, {
                 json: {userId: ws._bearerToken, logs: ws._batched} //TODO: remove userId when TREVOR does real auth /blame
@@ -73,6 +73,8 @@ server.on('upgrade', function(request, socket, body) {
 
     ws.on('close', function(event) {
       console.log('close', event.code, event.reason);
+      
+      if (ws._batchedInterval) clearInterval(ws._batchedInterval);
       ws = null;
     });
   }
