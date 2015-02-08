@@ -1,14 +1,13 @@
 var http = require('http'),
-    httpProxy = require('http-proxy'),
     WebSocket = require('faye-websocket'),
-    request = require('request'),
+    REQ = require('request'),
     apps = require('polo')(),
     config = require('conar')()
               .parse("config.json")
               .defaults({
-                host: "arewegood.azurewebsites.net",
+                host: "http://localhost",
                 localPort: 8015,
-                remotePort: 80,
+                remotePort: 3000,
                 serviceName: "arewegood-proxy",
                 logsEndpoint: "/logs",
                 authEndpoint: "/logs",
@@ -19,27 +18,13 @@ var http = require('http'),
 
 console.log("parsed args:", config);
 
-//
-// Setup our server to proxy standard HTTP requests
-//
-var proxy = new httpProxy.createProxyServer({
-  target: {
-    host: config.host+":"+config.remotePort
-  }
-});
+var server = http.createServer();
 
-//
-// Listen to the `upgrade` event and proxy the
-// WebSocket requests as well.
-//
-proxy.on('upgrade', function (request, socket, body) {
-  console.log("[proxy] got upgrade");
-  // For now, we convert ws messages to REST requests to config.host
+server.on('upgrade', function(request, socket, body) {
+  console.log("ok");
   if (WebSocket.isWebSocket(request)) {
     var ws = new WebSocket(request, socket, body);
-    
-    ws._bearerToken = null;
-    ws._batchedInterval = null;
+
     ws._batched = [];
 
     ws.on('message', function(event) {
@@ -48,38 +33,36 @@ proxy.on('upgrade', function (request, socket, body) {
       console.log("[proxy] parsed: ", p)
 
       if (p.type == "api_token") {
-        request.get(config.host+":"+config.remotePort+config.authEndpoint, {
-          auth: {
-            bearer: p.data
-          }
-        }, function(err, res) {
-          if (!err && res.statusCode == 200) {
+        //TODO: trevor didn't implement this on the service yet, so we can't verify tokens
+        // REQ(config.host+":"+config.remotePort+config.authEndpoint, {
+        //   auth: {
+        //     bearer: p.data
+        //   }
+        // }, function(err, res) {
+        //   if (!err && res.statusCode == 200) {
             ws.send(JSON.stringify({type:"api_token-response", data:"OK"}));
             ws._bearerToken = p.data;
             console.log("[proxy] bearerToken "+p.data);
-          } else {
-            ws.send(JSON.stringify({type:"api_token-response", data:"FAIL"}));
-            console.log("[proxy] bearerToken was invalid");
-          }
-        });
+          // } else {
+          //   ws.send(JSON.stringify({type:"api_token-response", data:"FAIL"}));
+          //   console.log("[proxy] bearerToken was invalid");
+          // }
+        //});
       } else if (typeof(p.type) !== "undefined") {
         ws._batched.push(p);
         console.log("[proxy] batched ", p);
 
         if (ws._batchedInterval == null) {
-          ws._batchedInterval = setInterval(function(){
+          ws._batchedInterval = setInterval(function() {
             if (ws._batched.length > 0 && ws._bearerToken) {
-              request.post(config.host+":"+config.remotePort+config.logsEndpoint, {
-                form: {entries: ws._batched},
-                auth: {
-                  bearer: ws._bearerToken
-                }
+              REQ.post(config.host+":"+config.remotePort+config.logsEndpoint, {
+                json: {userId: ws._bearerToken, logs: ws._batched} //TODO: remove userId when TREVOR does real auth /blame
               }, function(err, res) {
                 if (!err && res.statusCode == 200) {
                   ws._batched = [];
                   console.log("[proxy] batch call succeeded");
                 } else {
-                  console.log("[proxy] batch call failed");
+                  console.log("[proxy] batch call failed "+(err || res.statusCode));
                 }
               });
             }
@@ -87,18 +70,20 @@ proxy.on('upgrade', function (request, socket, body) {
         }
       }
     });
-    
+
     ws.on('close', function(event) {
+      console.log('close', event.code, event.reason);
+      
+      if (ws._batchedInterval) clearInterval(ws._batchedInterval);
       ws = null;
     });
   }
 });
 
-proxy.listen(config.port, function() {
+server.listen(8000, function(){
   apps.put({
     name: config.serviceName,
-    port: config.localPort
+    port: 8000
   });
-
-  console.log("listening on "+config.localPort);
+  console.log("up");
 });
