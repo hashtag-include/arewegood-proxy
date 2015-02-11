@@ -2,7 +2,7 @@ var http = require('http'),
     httpProxy = require('http-proxy'),
     WebSocket = require('faye-websocket'),
     request = require('request'),
-    apps = require('polo')(),
+    mdns = require('mdns'),
     config = require('conar')()
               .parse("config.json")
               .defaults({
@@ -94,11 +94,10 @@ proxy.on('upgrade', function (request, socket, body) {
   }
 });
 
-proxy.listen(config.port, function() {
-  apps.put({
-    name: config.serviceName,
-    port: config.localPort
-  });
-
+proxy.listen(config.localPort, function() {
+  var ad = mdns.createAdvertisement(mdns.tcp('http'), config.localPort, {txtRecord:{
+    name: config.serviceName
+  }});
+  ad.start();
   console.log("listening on "+config.localPort);
 });
