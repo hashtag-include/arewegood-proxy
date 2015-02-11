@@ -8,7 +8,7 @@ var http = require('http'),
                 host: "http://localhost",
                 localPort: 8015,
                 remotePort: 3000,
-                serviceName: "arewegood-proxy",
+                serviceName: "awgproxy",
                 logsEndpoint: "/logs",
                 authEndpoint: "/logs",
                 batchInterval: 2000
@@ -82,7 +82,7 @@ server.on('upgrade', function(request, socket, body) {
 
 
 server.listen(config.localPort, function(){
-  var ad = mdns.createAdvertisement({name: 'http', protocol: 'tcp', subtypes: [config.serviceName]}, config.localPort);
+  var ad = mdns.createAdvertisement({name: config.serviceName, protocol: 'tcp'}, config.localPort);
   ad.start();
   console.log("up on "+config.localPort);
 });
