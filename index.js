@@ -5,9 +5,9 @@ var http = require('http'),
     config = require('conar')()
               .parse("config.json")
               .defaults({
-                host: "http://localhost",
+                host: "https://api.arewegood.io",
                 localPort: 8015,
-                remotePort: 3000,
+                remotePort: 443,
                 serviceName: "awgproxy",
                 logsEndpoint: "/logs",
                 authEndpoint: "/logs",
