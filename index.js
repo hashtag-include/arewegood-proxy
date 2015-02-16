@@ -29,44 +29,51 @@ server.on('upgrade', function(request, socket, body) {
 
     ws.on('message', function(event) {
       var p = JSON.parse(event.data);
-      
+
       console.log("[proxy] parsed: ", p)
 
-      if (p.type == "api_token") {
-        //TODO: trevor didn't implement this on the service yet, so we can't verify tokens
-        // REQ(config.host+":"+config.remotePort+config.authEndpoint, {
-        //   auth: {
-        //     bearer: p.data
-        //   }
-        // }, function(err, res) {
-        //   if (!err && res.statusCode == 200) {
-            ws.send(JSON.stringify({type:"api_token-response", data:"OK"}));
-            ws._bearerToken = p.data;
-            console.log("[proxy] bearerToken "+p.data);
-          // } else {
-          //   ws.send(JSON.stringify({type:"api_token-response", data:"FAIL"}));
-          //   console.log("[proxy] bearerToken was invalid");
-          // }
-        //});
-      } else if (typeof(p.type) !== "undefined") {
-        ws._batched.push(p);
-        console.log("[proxy] batched ", p);
+      if (!(p instanceof Array)) {
+        p = [p];
+      }
 
-        if (ws._batchedInterval == null) {
-          ws._batchedInterval = setInterval(function() {
-            if (ws._batched.length > 0 && ws._bearerToken) {
-              REQ.post(config.host+":"+config.remotePort+config.logsEndpoint, {
-                json: {userId: ws._bearerToken, logs: ws._batched} //TODO: remove userId when TREVOR does real auth /blame
-              }, function(err, res) {
-                if (!err && res.statusCode == 200) {
-                  ws._batched = [];
-                  console.log("[proxy] batch call succeeded");
-                } else {
-                  console.log("[proxy] batch call failed "+(err || res.statusCode));
-                }
-              });
-            }
-          }, config.batchInterval);
+      for (var i = 0 ; i < p.length; i++) {
+        var item = p[i];
+        if (item.type == "api_token") {
+          //TODO: trevor didn't implement this on the service yet, so we can't verify tokens
+          // REQ(config.host+":"+config.remotePort+config.authEndpoint, {
+          //   auth: {
+          //     bearer: item.data
+          //   }
+          // }, function(err, res) {
+          //   if (!err && res.statusCode == 200) {
+              ws.send(JSON.stringify({type:"api_token-response", data:"OK"}));
+              ws._bearerToken = item.data;
+              console.log("[proxy] bearerToken "+item.data);
+            // } else {
+            //   ws.send(JSON.stringify({type:"api_token-response", data:"FAIL"}));
+            //   console.log("[proxy] bearerToken was invalid");
+            // }
+          //});
+        } else if (typeof(item.type) !== "undefined") {
+          ws._batched.push(item);
+          console.log("[proxy] batched ", item);
+
+          if (ws._batchedInterval == null) {
+            ws._batchedInterval = setInterval(function() {
+              if (ws._batched.length > 0 && ws._bearerToken) {
+                REQ.post(config.host+":"+config.remotePort+config.logsEndpoint, {
+                  json: {userId: ws._bearerToken, logs: ws._batched} //TODO: remove userId when TREVOR does real auth /blame
+                }, function(err, res) {
+                  if (!err && res.statusCode == 200) {
+                    ws._batched = [];
+                    console.log("[proxy] batch call succeeded");
+                  } else {
+                    console.log("[proxy] batch call failed "+(err || res.statusCode));
+                  }
+                });
+              }
+            }, config.batchInterval);
+          }
         }
       }
     });
