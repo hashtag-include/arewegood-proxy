@@ -39,21 +39,21 @@ server.on('upgrade', function(request, socket, body) {
       for (var i = 0 ; i < p.length; i++) {
         var item = p[i];
         if (item.type == "api_token") {
-          //TODO: trevor didn't implement this on the service yet, so we can't verify tokens
-          // REQ(config.host+":"+config.remotePort+config.authEndpoint, {
-          //   auth: {
-          //     bearer: item.data
-          //   }
-          // }, function(err, res) {
-          //   if (!err && res.statusCode == 200) {
+          // Hit the authEndpoint with the given access_token to verify it
+          REQ(config.host+":"+config.remotePort+config.authEndpoint, {
+            auth: {
+              bearer: item.data
+            }
+          }, function(err, res) {
+            if (!err && res.statusCode != 401) {
               ws.send(JSON.stringify({type:"api_token-response", data:"OK"}));
               ws._bearerToken = item.data;
               console.log("[proxy] bearerToken "+item.data);
-            // } else {
-            //   ws.send(JSON.stringify({type:"api_token-response", data:"FAIL"}));
-            //   console.log("[proxy] bearerToken was invalid");
-            // }
-          //});
+            } else {
+              ws.send(JSON.stringify({type:"api_token-response", data:"FAIL"}));
+              console.log("[proxy] bearerToken was invalid, status: "+((err) ? err.message : ((res) ? res.statusCode : "unclear")));
+            }
+          });
         } else if (typeof(item.type) !== "undefined") {
           ws._batched.push(item);
           console.log("[proxy] batched ", item);
@@ -61,14 +61,15 @@ server.on('upgrade', function(request, socket, body) {
           if (ws._batchedInterval == null) {
             ws._batchedInterval = setInterval(function() {
               if (ws._batched.length > 0 && ws._bearerToken) {
-                REQ.post(config.host+":"+config.remotePort+config.logsEndpoint, {
-                  json: {userId: ws._bearerToken, logs: ws._batched} //TODO: remove userId when TREVOR does real auth /blame
-                }, function(err, res) {
+                console.log(JSON.stringify(ws._batched));
+                REQ.post(config.host+":"+config.remotePort+config.logsEndpoint+"?access_token="+ws._bearerToken, {
+                  json: {logs: ws._batched}
+                }, function(err, res, body) {
                   if (!err && res.statusCode == 200) {
                     ws._batched = [];
                     console.log("[proxy] batch call succeeded");
                   } else {
-                    console.log("[proxy] batch call failed "+(err || res.statusCode));
+                    console.log("[proxy] batch call failed "+(err || res.statusCode)+" body: "+JSON.stringify(body));
                   }
                 });
               }
